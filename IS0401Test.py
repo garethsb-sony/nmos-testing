@@ -65,8 +65,12 @@ class IS0401Test(GenericTest):
 
         # TODO: Add another test which checks support for parsing CSV string in api_ver
         txt = {'api_ver': self.apis[NODE_API_KEY]["version"], 'api_proto': 'http', 'pri': '0'}
-        info = ServiceInfo("_nmos-registration._tcp.local.",
-                           "NMOS Test Suite._nmos-registration._tcp.local.",
+        service_type = "_nmos-registration._tcp.local"
+        if self.is04_utils.compare_api_version(self.apis[NODE_API_KEY]["version"], "v1.3") >= 0:
+            service_type = "_nmos-register._tcp.local"
+
+        info = ServiceInfo(service_type,
+                           "NMOS Test Suite." + service_type,
                            socket.inet_aton(default_ip), 5000, 0, 0,
                            txt, "nmos-test.local.")
 
