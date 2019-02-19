@@ -550,6 +550,8 @@ class IS0402Test(GenericTest):
             # For debugging
             node_data["tags"]["index"] = [str(_)]
 
+            before_timestamp = self.is04_query_utils.get_TAI_time()
+
             valid_post, r = self.do_request("POST", self.reg_url + "resource",
                                             data = {"type": "node", "data": node_data})
             if not valid_post:
@@ -558,9 +560,11 @@ class IS0402Test(GenericTest):
                 raise NMOSTestException(test.FAIL("Cannot POST sample data. Cannot execute test: "
                                                   "{} {}".format(r.status_code, r.text)))
 
+            after_timestamp = self.is04_query_utils.get_TAI_time()
+
             # Perform a Query API request to get the update timestamp of the most recently POSTed node
-            # Wish there was a better way, as this puts the cart before the horse!
-            # Another alternative would be to use local timestamps, provided clocks were synchronised?
+
+            update_timestamp = None
 
             valid_get, q = self.do_request("GET", self.query_url + "nodes")
             if not valid_get:
@@ -573,12 +577,15 @@ class IS0402Test(GenericTest):
             try:
                 if q.json()[0]["id"] != node_data["id"]:
                     raise NMOSTestException(test.FAIL("Query API response did not have the most recently POSTed node first"))
-                update_timestamps.append(q.headers["X-Paging-Until"])
+                update_timestamp = q.headers["X-Paging-Until"]
             except json.decoder.JSONDecodeError:
                 raise NMOSTestException(test.FAIL("Non-JSON response returned"))
             except KeyError:
                 raise NMOSTestException(test.FAIL("Query API did not respond as expected, "
                                                   "for query: {}".format(query_string)))
+
+            # timestamps are tuples of (before, precise, after)
+            update_timestamps.append((before_timestamp, update_timestamp, after_timestamp))
 
         # Bear in mind that the returned arrays are in forward order
         # whereas Query API responses are required to be in reverse order
@@ -592,9 +599,21 @@ class IS0402Test(GenericTest):
 
         if limit != None:
             query_parameters.append("paging.limit=" + str(limit))
-        if since != None:
+
+        # since and until may be tuples of (before, precise, after)
+
+        if since == None:
+            pass
+        elif type(since) is tuple:
+            query_parameters.append("paging.since=" + since[2])
+        else: # if type(since) is str:
             query_parameters.append("paging.since=" + since)
-        if until != None:
+
+        if until == None:
+            pass
+        elif type(until) is tuple:
+            query_parameters.append("paging.until=" + until[2])
+        else: # if type(until) is str:
             query_parameters.append("paging.until=" + until)
 
         if description != None:
@@ -648,8 +667,13 @@ class IS0402Test(GenericTest):
             except json.decoder.JSONDecodeError:
                 raise NMOSTestException(test.FAIL("Non-JSON response returned"))
 
+        # expected_since and expected_until may be tuples of (before, precise, after)
         def check_timestamp(expected, actual):
-            return expected is None or self.is04_query_utils.compare_resource_version(expected, actual) == 0
+            return (expected is None or
+                (type(expected) is str and self.is04_query_utils.compare_resource_version(expected, actual) == 0) or
+                (type(expected) is tuple and
+                    self.is04_query_utils.compare_resource_version(expected[0], actual) <= 0 and
+                    self.is04_query_utils.compare_resource_version(expected[2], actual) >= 0))
 
         try:
             since = response.headers["X-Paging-Since"]
@@ -803,8 +827,9 @@ class IS0402Test(GenericTest):
 
         timestamps, ids = self.post_sample_nodes(test, 20, description)
 
-        after = "{}:0".format(int (timestamps[-1].split(":")[0]) + 1)
-        before = "{}:0".format(int (timestamps[0].split(":")[0]) - 1)
+        # timestamps are tuples of (before, precise, after)
+        after = timestamps[-1][2]
+        before = timestamps[0][0]
 
         # Check the header values when a client specifies a paging.since value after the newest resource's timestamp
 
