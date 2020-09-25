@@ -552,6 +552,8 @@ class IS0401Test(GenericTest):
 
         initial_node = registry_data.posts[0]
 
+        print(registry_data.heartbeats)
+
         last_hb = None
         for heartbeat in registry_data.heartbeats:
             # Ensure the Node ID for heartbeats matches the registrations
