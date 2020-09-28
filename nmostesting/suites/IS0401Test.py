@@ -210,14 +210,7 @@ class IS0401Test(GenericTest):
                 if (index + 1) >= len(self.registries):
                     break
 
-                # in event of testing HTTPS support, the TLS handshake seems to take nearly 2 seconds, so
-                # when the first registry is disabled, an additional few seconds is needed to ensure the node
-                # has a chance to make a connection to it, receive the 5xx error, and make a connection to
-                # the next one
-                if CONFIG.ENABLE_HTTPS:
-                    heartbeat_countdown = CONFIG.HEARTBEAT_INTERVAL + 1 + 5
-                else:
-                    heartbeat_countdown = CONFIG.HEARTBEAT_INTERVAL + 1
+                heartbeat_countdown = CONFIG.HEARTBEAT_INTERVAL + 1
 
                 # Wait an extra heartbeat interval when dealing with the timout test
                 # This allows a Node's connection to time out and then register with the next mock registry
